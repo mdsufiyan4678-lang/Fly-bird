@@ -50,8 +50,8 @@ public class GameManager {
     private static final long MIN_CLAIM_INTERVAL_MS = 20L * 3600L * 1000L; // Minimum 20h between claims across days
     private static final long MAX_CLOCK_DRIFT_MS = 15L * 60L * 1000L; // 15m tolerance between monotonic & wall clock
 
-    public static final String DEFAULT_WS_URL = "wss://YOUR_SERVER_DOMAIN";
-    public static final String DEFAULT_HTTP_URL = "https://YOUR_SERVER_DOMAIN";
+    public static final String DEFAULT_WS_URL = "wss://fly-bird-1.onrender.com";
+    public static final String DEFAULT_HTTP_URL = "https://fly-bird-1.onrender.com";
 
     /**
      * Clock abstraction to support deterministic Robolectric unit testing of daily rewards
@@ -301,7 +301,15 @@ public class GameManager {
         }
 
         wsServerUrl = prefs.getString(KEY_WS_SERVER_URL, defaultWs);
+        if (wsServerUrl == null || wsServerUrl.contains("YOUR_SERVER_DOMAIN")) {
+            wsServerUrl = defaultWs;
+            prefs.edit().putString(KEY_WS_SERVER_URL, wsServerUrl).apply();
+        }
         httpServerUrl = prefs.getString(KEY_HTTP_SERVER_URL, defaultHttp);
+        if (httpServerUrl == null || httpServerUrl.contains("YOUR_SERVER_DOMAIN")) {
+            httpServerUrl = defaultHttp;
+            prefs.edit().putString(KEY_HTTP_SERVER_URL, httpServerUrl).apply();
+        }
 
         // Load daily login reward state
         lastClaimEpochDay = prefs.getLong(KEY_LAST_CLAIM_EPOCH_DAY, -1L);

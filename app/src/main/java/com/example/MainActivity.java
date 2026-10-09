@@ -98,7 +98,7 @@ public class MainActivity extends Activity implements GameView.HostUiCallbacks {
         layout.setPadding(pad, pad / 2, pad, pad / 2);
 
         TextView nameLabel = new TextView(this);
-        nameLabel.setText("Pilot Display Name (max 16 chars):");
+        nameLabel.setText("Enter your Pilot Display Name (max 16 chars):");
         layout.addView(nameLabel);
 
         EditText nameInput = new EditText(this);
@@ -107,36 +107,13 @@ public class MainActivity extends Activity implements GameView.HostUiCallbacks {
         nameInput.setFilters(new InputFilter[]{new InputFilter.LengthFilter(16)});
         layout.addView(nameInput);
 
-        TextView wsLabel = new TextView(this);
-        wsLabel.setText("\nMultiplayer WebSocket Server URL (wss:// or ws://):");
-        layout.addView(wsLabel);
-
-        EditText wsInput = new EditText(this);
-        wsInput.setText(gameManager.getWsServerUrl());
-        wsInput.setHint("wss://YOUR_SERVER_DOMAIN");
-        wsInput.setSingleLine(true);
-        layout.addView(wsInput);
-
-        TextView httpLabel = new TextView(this);
-        httpLabel.setText("\nLeaderboard HTTPS Server URL (optional, auto-derived if blank):");
-        layout.addView(httpLabel);
-
-        EditText httpInput = new EditText(this);
-        httpInput.setText(gameManager.getHttpServerUrl());
-        httpInput.setHint("https://YOUR_SERVER_DOMAIN");
-        httpInput.setSingleLine(true);
-        layout.addView(httpInput);
-
         new AlertDialog.Builder(this)
-                .setTitle("Multiplayer Server & Pilot Config")
+                .setTitle("Edit Pilot Name")
                 .setView(layout)
                 .setPositiveButton("SAVE", (dialog, which) -> {
                     String newName = nameInput.getText() != null ? nameInput.getText().toString() : "";
-                    String newWs = wsInput.getText() != null ? wsInput.getText().toString() : "";
-                    String newHttp = httpInput.getText() != null ? httpInput.getText().toString() : "";
                     gameManager.setPlayerName(newName);
-                    gameManager.setServerUrls(newWs, newHttp);
-                    gameView.showBannerNotice("Saved Pilot '" + gameManager.getPlayerName() + "' & Server URL.");
+                    gameView.showBannerNotice("Pilot Name saved: " + gameManager.getPlayerName());
                 })
                 .setNegativeButton("CANCEL", null)
                 .show();

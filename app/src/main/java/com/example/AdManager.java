@@ -55,12 +55,15 @@ public class AdManager {
      */
     public void initialize(FrameLayout rootContainer) {
         try {
-            MobileAds.initialize(activity, initializationStatus ->
-                    Log.d(TAG, "AdMob SDK initialized."));
-            setupBannerAd(rootContainer);
-            loadRewardedAd();
-        } catch (Exception e) {
-            Log.w(TAG, "AdMob initialization skipped or failed: " + e.getMessage());
+            MobileAds.initialize(activity, initializationStatus -> {
+                Log.d(TAG, "AdMob SDK initialized.");
+                activity.runOnUiThread(() -> {
+                    setupBannerAd(rootContainer);
+                    loadRewardedAd();
+                });
+            });
+        } catch (Throwable t) {
+            Log.w(TAG, "AdMob initialization skipped or failed: " + t.getMessage());
         }
     }
 

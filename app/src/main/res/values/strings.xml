@@ -5,6 +5,6 @@
     <string name="admob_app_id" translatable="false">ca-app-pub-1238798127993304~7055556959</string>
     <string name="admob_banner_ad_unit_id" translatable="false">ca-app-pub-1238798127993304/8249308413</string>
     <string name="admob_rewarded_ad_unit_id" translatable="false">ca-app-pub-1238798127993304/1683900062</string>
-    <string name="default_ws_server_url" translatable="false">wss://YOUR_SERVER_DOMAIN</string>
-    <string name="default_http_server_url" translatable="false">https://YOUR_SERVER_DOMAIN</string>
+    <string name="default_ws_server_url" translatable="false">wss://fly-bird-1.onrender.com</string>
+    <string name="default_http_server_url" translatable="false">https://fly-bird-1.onrender.com</string>
 </resources>

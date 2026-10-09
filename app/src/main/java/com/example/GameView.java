@@ -198,7 +198,10 @@ public class GameView extends View implements MultiplayerManager.MultiplayerList
         textPaint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
 
         initClouds();
-        this.showDailyRewardModal = gameManager.canClaimDailyReward();
+        this.showDailyRewardModal = false;
+        if (gameManager.canClaimDailyReward()) {
+            showBannerNotice("🎁 Daily Reward Ready! Tap 'CLAIM DAILY +50 COINS' below.");
+        }
         setFocusable(true);
         setClickable(true);
     }
@@ -311,10 +314,10 @@ public class GameView extends View implements MultiplayerManager.MultiplayerList
         this.obstacleRandom = new Random(seed);
         this.birdX = viewWidth * 0.26f;
         this.birdY = groundTopY * 0.46f;
-        this.birdVelocityY = 0f;
-        this.birdRotationDeg = 0f;
+        this.birdVelocityY = -340f * dp;
+        this.birdRotationDeg = -18f;
         this.localPlayerAlive = true;
-        this.waitingReadyTap = !multiplayer; // Multiplayer starts immediately after room ready
+        this.waitingReadyTap = false;
         this.currentScore = 0;
         this.coinsCollectedInRun = 0;
         this.lastEarnedTotalCoins = 0;
@@ -713,7 +716,7 @@ public class GameView extends View implements MultiplayerManager.MultiplayerList
                 Color.parseColor("#00E5FF"), 12f);
 
         drawPillButton(canvas, btnServerConfig,
-                "⚙ SERVER / ID",
+                "✎ PILOT ID",
                 Color.parseColor("#1E3A5F"),
                 Color.parseColor("#FFD700"), 12f);
 
@@ -1264,74 +1267,21 @@ public class GameView extends View implements MultiplayerManager.MultiplayerList
         textPaint.setTextAlign(Paint.Align.CENTER);
         textPaint.setTextSize(20f * dp);
         textPaint.setColor(Color.parseColor("#00E5FF"));
-        canvas.drawText("LEADERBOARDS", viewWidth * 0.5f, topY + 25f * dp, textPaint);
+        canvas.drawText("TOP SCORES", viewWidth * 0.5f, topY + 25f * dp, textPaint);
 
-        btnRefreshOnline.set(viewWidth - sidePad - 96f * dp, topY, viewWidth - sidePad, topY + 38f * dp);
-        drawPillButton(canvas, btnRefreshOnline, "↻ SYNC",
-                Color.parseColor("#00897B"), Color.parseColor("#B9F6CA"), 12f);
+        btnRefreshOnline.set(0, 0, 0, 0);
+        btnTabLocal.set(0, 0, 0, 0);
+        btnTabOnline.set(0, 0, 0, 0);
+        btnTabMatches.set(0, 0, 0, 0);
 
-        // Tabs
-        float tabY = topY + 48f * dp;
-        float tabW = (viewWidth - sidePad * 2 - 16f * dp) / 3f;
-        btnTabLocal.set(sidePad, tabY, sidePad + tabW, tabY + 36f * dp);
-        btnTabOnline.set(btnTabLocal.right + 8f * dp, tabY, btnTabLocal.right + 8f * dp + tabW, tabY + 36f * dp);
-        btnTabMatches.set(btnTabOnline.right + 8f * dp, tabY, viewWidth - sidePad, tabY + 36f * dp);
-
-        drawPillButton(canvas, btnTabLocal, "LOCAL BEST",
-                leaderboardTab == 0 ? Color.parseColor("#0288D1") : Color.parseColor("#1C3144"),
-                Color.parseColor("#00E5FF"), 11.5f);
-        drawPillButton(canvas, btnTabOnline, "ONLINE TOP",
-                leaderboardTab == 1 ? Color.parseColor("#0288D1") : Color.parseColor("#1C3144"),
-                Color.parseColor("#00E5FF"), 11.5f);
-        drawPillButton(canvas, btnTabMatches, "2P MATCHES",
-                leaderboardTab == 2 ? Color.parseColor("#0288D1") : Color.parseColor("#1C3144"),
-                Color.parseColor("#00E5FF"), 11.5f);
-
-        float listTop = tabY + 48f * dp;
+        float listTop = topY + 52f * dp;
         float listBottom = viewHeight - 75f * dp;
         tempRect.set(sidePad, listTop, viewWidth - sidePad, listBottom);
         drawGlassCard(canvas, tempRect, Color.parseColor("#CC0B1D3A"), Color.parseColor("#00E5FF"));
 
-        if (leaderboardTab == 0) {
-            List<LeaderboardManager.ScoreEntry> local = leaderboardManager.getLocalScores();
-            drawScoreEntriesList(canvas, local, listTop + 28f * dp, sidePad + 16f * dp,
-                    "No local flights recorded yet. Play a round to set your record!");
-        } else if (leaderboardTab == 1) {
-            textPaint.setTextAlign(Paint.Align.CENTER);
-            textPaint.setTextSize(11.5f * dp);
-            textPaint.setColor(Color.parseColor("#FFD700"));
-            canvas.drawText(leaderboardManager.getOnlineStatusMessage(), viewWidth * 0.5f, listTop + 22f * dp, textPaint);
-
-            List<LeaderboardManager.ScoreEntry> online = leaderboardManager.getCachedOnlineScores();
-            drawScoreEntriesList(canvas, online, listTop + 48f * dp, sidePad + 16f * dp,
-                    "Deploy the Node.js server & set its URL via ⚙ SERVER to load global scores.");
-        } else {
-            textPaint.setTextAlign(Paint.Align.CENTER);
-            textPaint.setTextSize(11.5f * dp);
-            textPaint.setColor(Color.parseColor("#FFD700"));
-            canvas.drawText(leaderboardManager.getOnlineStatusMessage(), viewWidth * 0.5f, listTop + 22f * dp, textPaint);
-
-            List<LeaderboardManager.OnlineMatchEntry> matches = leaderboardManager.getCachedOnlineMatches();
-            if (matches.isEmpty()) {
-                textPaint.setColor(Color.LTGRAY);
-                textPaint.setTextSize(13f * dp);
-                canvas.drawText("No online 2-player matches recorded on server yet.",
-                        viewWidth * 0.5f, listTop + 95f * dp, textPaint);
-            } else {
-                float rowY = listTop + 50f * dp;
-                textPaint.setTextAlign(Paint.Align.LEFT);
-                textPaint.setTextSize(12.5f * dp);
-                for (int i = 0; i < Math.min(8, matches.size()); i++) {
-                    LeaderboardManager.OnlineMatchEntry m = matches.get(i);
-                    textPaint.setColor(Color.parseColor("#00E676"));
-                    canvas.drawText("🏆 " + m.winnerName + "  •  "
-                                    + m.player1Name + " (" + m.player1Score + ") vs "
-                                    + m.player2Name + " (" + m.player2Score + ")",
-                            sidePad + 16f * dp, rowY, textPaint);
-                    rowY += 32f * dp;
-                }
-            }
-        }
+        List<LeaderboardManager.ScoreEntry> local = leaderboardManager.getLocalScores();
+        drawScoreEntriesList(canvas, local, listTop + 34f * dp, sidePad + 16f * dp,
+                "No flights recorded yet. Play a round to set your record!");
     }
 
     private void drawScoreEntriesList(Canvas canvas, List<LeaderboardManager.ScoreEntry> entries,
@@ -1376,53 +1326,50 @@ public class GameView extends View implements MultiplayerManager.MultiplayerList
         textPaint.setColor(Color.parseColor("#00E5FF"));
         canvas.drawText("2-PLAYER ONLINE ARENA", viewWidth * 0.5f, topY + 25f * dp, textPaint);
 
-        // Server & Pilot Identity Card
+        // Pilot Identity Card (No Server URL UI)
         float infoTop = topY + 50f * dp;
-        tempRect.set(sidePad, infoTop, viewWidth - sidePad, infoTop + 82f * dp);
+        tempRect.set(sidePad, infoTop, viewWidth - sidePad, infoTop + 68f * dp);
         drawGlassCard(canvas, tempRect, Color.parseColor("#CC0B1D3A"), Color.parseColor("#FFD700"));
 
         textPaint.setTextAlign(Paint.Align.LEFT);
-        textPaint.setTextSize(13f * dp);
+        textPaint.setTextSize(14f * dp);
         textPaint.setColor(Color.WHITE);
-        canvas.drawText("Pilot Name: " + gameManager.getPlayerName(), sidePad + 14f * dp, infoTop + 26f * dp, textPaint);
-
-        textPaint.setTextSize(11.5f * dp);
-        textPaint.setColor(gameManager.isServerConfigured() ? Color.parseColor("#00E676") : Color.parseColor("#FFAB40"));
-        canvas.drawText("Server: " + gameManager.getWsServerUrl(), sidePad + 14f * dp, infoTop + 48f * dp, textPaint);
+        canvas.drawText("Pilot Name: " + gameManager.getPlayerName(), sidePad + 14f * dp, infoTop + 28f * dp, textPaint);
 
         btnMpEditServer.set(viewWidth - sidePad - 128f * dp, infoTop + 14f * dp, viewWidth - sidePad - 12f * dp, infoTop + 52f * dp);
-        drawPillButton(canvas, btnMpEditServer, "✎ CONFIGURE",
+        drawPillButton(canvas, btnMpEditServer, "✎ EDIT NAME",
                 Color.parseColor("#1E3A5F"), Color.parseColor("#FFD700"), 11.5f);
 
         textPaint.setTextSize(11.5f * dp);
         textPaint.setColor(Color.parseColor("#80D8FF"));
-        canvas.drawText("Status: " + multiplayerManager.getStatusBanner(), sidePad + 14f * dp, infoTop + 70f * dp, textPaint);
+        canvas.drawText(multiplayerManager.getStatusBanner(), sidePad + 14f * dp, infoTop + 52f * dp, textPaint);
 
         String activeRoom = multiplayerManager.getCurrentRoomCode();
         if (activeRoom == null || activeRoom.isEmpty()) {
-            // Room Creation / Join Controls
-            float actionTop = infoTop + 105f * dp;
+            float actionTop = infoTop + 90f * dp;
             btnMpCreateRoom.set(sidePad, actionTop, viewWidth - sidePad, actionTop + 54f * dp);
-            drawPillButton(canvas, btnMpCreateRoom, "➕  CREATE ROOM (GENERATE 6-DIGIT CODE)",
-                    Color.parseColor("#00C853"), Color.parseColor("#B9F6CA"), 15f);
+            drawPillButton(canvas, btnMpCreateRoom,
+                    "➕  CREATE ROOM (GENERATE 6-DIGIT CODE)",
+                    Color.parseColor("#00C853"),
+                    Color.parseColor("#B9F6CA"), 14.5f);
 
             btnMpJoinRoom.set(sidePad, actionTop + 70f * dp, viewWidth - sidePad, actionTop + 124f * dp);
             drawPillButton(canvas, btnMpJoinRoom, "🔑  JOIN ROOM (ENTER 6-DIGIT CODE)",
                     Color.parseColor("#0288D1"), Color.parseColor("#00E5FF"), 15f);
 
-            // Architecture & Anti-Cheat Note Card
+            // How to Play 2P Note Card
             tempRect.set(sidePad, actionTop + 148f * dp, viewWidth - sidePad, actionTop + 265f * dp);
             drawGlassCard(canvas, tempRect, Color.parseColor("#990B1D3A"), Color.parseColor("#00E5FF"));
             textPaint.setTextAlign(Paint.Align.CENTER);
             textPaint.setTextSize(13.5f * dp);
             textPaint.setColor(Color.parseColor("#FFD700"));
-            canvas.drawText("REAL-TIME WEBSOCKET MULTIPLAYER", tempRect.centerX(), tempRect.top + 28f * dp, textPaint);
+            canvas.drawText("HOW TO PLAY 2-PLAYER ONLINE", tempRect.centerX(), tempRect.top + 28f * dp, textPaint);
 
             textPaint.setTextSize(11.5f * dp);
             textPaint.setColor(Color.WHITE);
-            canvas.drawText("• Each room supports up to 2 Android phones over WSS.", tempRect.centerX(), tempRect.top + 52f * dp, textPaint);
-            canvas.drawText("• Both players fly through the exact same seeded pipe course.", tempRect.centerX(), tempRect.top + 74f * dp, textPaint);
-            canvas.drawText("• Authoritative Node.js server validates scores & determines winner.", tempRect.centerX(), tempRect.top + 96f * dp, textPaint);
+            canvas.drawText("1. Tap CREATE ROOM on Phone 1 to get a 6-digit code.", tempRect.centerX(), tempRect.top + 52f * dp, textPaint);
+            canvas.drawText("2. Tap JOIN ROOM on Phone 2 and enter the 6-digit code.", tempRect.centerX(), tempRect.top + 74f * dp, textPaint);
+            canvas.drawText("3. Tap READY on both phones to launch the live race!", tempRect.centerX(), tempRect.top + 96f * dp, textPaint);
         } else {
             // Inside Room Waiting / Ready Lobby
             float roomTop = infoTop + 96f * dp;
@@ -1559,11 +1506,13 @@ public class GameView extends View implements MultiplayerManager.MultiplayerList
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        if (event.getAction() != MotionEvent.ACTION_DOWN) {
+        int action = event.getActionMasked();
+        if (action != MotionEvent.ACTION_DOWN && action != MotionEvent.ACTION_POINTER_DOWN) {
             return true;
         }
-        float x = event.getX();
-        float y = event.getY();
+        int actionIndex = event.getActionIndex();
+        float x = event.getX(actionIndex);
+        float y = event.getY(actionIndex);
 
         switch (screenState) {
             case MAIN_MENU:
@@ -1622,7 +1571,8 @@ public class GameView extends View implements MultiplayerManager.MultiplayerList
                     soundManager.playHit();
                     showBannerNotice(result.message);
                 }
-            } else if (btnDailyModalClose.contains(x, y)) {
+            } else {
+                // Tapping Close or anywhere outside the claim button dismisses the modal
                 soundManager.playButton();
                 showDailyRewardModal = false;
             }
@@ -1649,8 +1599,17 @@ public class GameView extends View implements MultiplayerManager.MultiplayerList
             soundManager.playButton();
             switchScreen(ScreenState.LEADERBOARD);
         } else if (btnDailyReward.contains(x, y)) {
-            soundManager.playButton();
-            showDailyRewardModal = true;
+            if (gameManager.canClaimDailyReward()) {
+                GameManager.DailyRewardClaimResult result = gameManager.claimDailyReward();
+                if (result.success) {
+                    soundManager.playCoin();
+                    spawnCoinBurst(viewWidth * 0.5f, viewHeight * 0.45f);
+                    showBannerNotice(result.message);
+                }
+            } else {
+                soundManager.playButton();
+                showDailyRewardModal = true;
+            }
         } else if (btnWatchAd.contains(x, y)) {
             soundManager.playButton();
             if (hostCallbacks != null) hostCallbacks.onRequestRewardedAd();
@@ -1765,7 +1724,11 @@ public class GameView extends View implements MultiplayerManager.MultiplayerList
         if (activeRoom == null || activeRoom.isEmpty()) {
             if (btnMpCreateRoom.contains(x, y)) {
                 soundManager.playButton();
-                multiplayerManager.createRoom();
+                if (multiplayerManager.getCurrentState() == MultiplayerManager.RoomState.CONNECTING) {
+                    multiplayerManager.leaveRoom();
+                } else {
+                    multiplayerManager.createRoom();
+                }
             } else if (btnMpJoinRoom.contains(x, y)) {
                 soundManager.playButton();
                 if (hostCallbacks != null) hostCallbacks.onRequestJoinRoomDialog();
