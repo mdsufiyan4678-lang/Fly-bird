@@ -1,0 +1,20 @@
+{
+  "name": "fly-bird-multiplayer-server",
+  "version": "1.0.0",
+  "description": "Standalone authoritative Node.js WebSocket & REST server for Fly Bird — Online Multiplayer Edition",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "ws": "^8.18.0"
+  }
+}

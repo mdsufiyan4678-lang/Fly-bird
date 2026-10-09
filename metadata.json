@@ -1,0 +1,6 @@
+{
+  "name": "Fly Bird",
+  "description": "Fly Bird — Online Multiplayer Edition: 2D arcade flying game with two-player WebSocket multiplayer, bird shop, coins, leaderboards, sound effects, and AdMob integration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
