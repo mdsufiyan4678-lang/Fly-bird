@@ -164,6 +164,14 @@ public class GameView extends View implements MultiplayerManager.MultiplayerList
 
     private final RectF[] shopCardRects = new RectF[6];
     private final RectF btnShopWatchAd = new RectF();
+    private final RectF btnShopTabSkinsPage1 = new RectF();
+    private final RectF btnShopTabSkinsPage2 = new RectF();
+    private final RectF btnShopTabProducts = new RectF();
+    private int shopTab = 0; // 0 = Skins Page 1 (0..5), 1 = Skins Page 2 (6..11), 2 = In-App Products (0..5)
+    private boolean runHasShield = false;
+    private boolean runHasMagnet = false;
+    private boolean runHasDoubleCoins = false;
+    private float shieldInvulnTimer = 0f;
     private final RectF btnHeaderBack = new RectF();
 
     private final RectF btnTabLocal = new RectF();
@@ -328,6 +336,20 @@ public class GameView extends View implements MultiplayerManager.MultiplayerList
         this.pipeSpawnTimer = 0.4f;
         this.runStartTimeMs = SystemClock.uptimeMillis();
         this.lastMultiplayerSyncMs = 0L;
+        this.shieldInvulnTimer = 0f;
+        if (!multiplayer) {
+            this.runHasShield = gameManager.consumeShield();
+            this.runHasMagnet = gameManager.consumeMagnet();
+            this.runHasDoubleCoins = gameManager.consumeDoubleCoin();
+            if (gameManager.consumeHeadstart()) {
+                this.currentScore = 5;
+                this.shieldInvulnTimer = 2.0f;
+            }
+        } else {
+            this.runHasShield = false;
+            this.runHasMagnet = false;
+            this.runHasDoubleCoins = false;
+        }
         switchScreen(multiplayer ? ScreenState.MULTIPLAYER_GAME : ScreenState.SINGLE_PLAYER_GAME);
     }
 
@@ -377,6 +399,9 @@ public class GameView extends View implements MultiplayerManager.MultiplayerList
         animTimeSec += dt;
         if (toastBannerTimer > 0f) {
             toastBannerTimer = Math.max(0f, toastBannerTimer - dt);
+        }
+        if (shieldInvulnTimer > 0f) {
+            shieldInvulnTimer = Math.max(0f, shieldInvulnTimer - dt);
         }
 
         // Scroll clouds and ground in all non-paused states
@@ -431,8 +456,16 @@ public class GameView extends View implements MultiplayerManager.MultiplayerList
             // Ground collision check
             if (birdY + birdRadius >= groundTopY) {
                 birdY = groundTopY - birdRadius;
-                handleLocalPlayerCrash();
-                return;
+                if (runHasShield || shieldInvulnTimer > 0f) {
+                    runHasShield = false;
+                    shieldInvulnTimer = 1.5f;
+                    birdVelocityY = -420f * dp;
+                    soundManager.playCoin();
+                    showBannerNotice("🛡️ Crash Shield saved you!");
+                } else {
+                    handleLocalPlayerCrash();
+                    return;
+                }
             }
         }
 
@@ -467,12 +500,21 @@ public class GameView extends View implements MultiplayerManager.MultiplayerList
             }
 
             // Collision check with top or bottom pipe
-            if (localPlayerAlive) {
+            if (localPlayerAlive && shieldInvulnTimer <= 0f) {
                 float hitRadius = birdRadius * 0.82f;
                 if (circleIntersectsRect(birdX, birdY, hitRadius, pipe.x, 0f, pipe.x + pipeWidth, topPipeBottom)
                         || circleIntersectsRect(birdX, birdY, hitRadius, pipe.x, bottomPipeTop, pipe.x + pipeWidth, groundTopY)) {
-                    handleLocalPlayerCrash();
-                    return;
+                    if (runHasShield) {
+                        runHasShield = false;
+                        shieldInvulnTimer = 1.5f;
+                        birdVelocityY = -260f * dp;
+                        soundManager.playCoin();
+                        spawnCoinBurst(birdX, birdY);
+                        showBannerNotice("🛡️ Crash Shield absorbed the pipe impact!");
+                    } else {
+                        handleLocalPlayerCrash();
+                        return;
+                    }
                 }
             }
 
@@ -492,10 +534,18 @@ public class GameView extends View implements MultiplayerManager.MultiplayerList
                 float dx = birdX - coin.x;
                 float dy = birdY - coin.y;
                 float distSq = dx * dx + dy * dy;
+                if (runHasMagnet && distSq < (190f * dp) * (190f * dp)) {
+                    float dist = (float) Math.sqrt(Math.max(1f, distSq));
+                    coin.x += (dx / dist) * 340f * dp * dt;
+                    coin.y += (dy / dist) * 340f * dp * dt;
+                    dx = birdX - coin.x;
+                    dy = birdY - coin.y;
+                    distSq = dx * dx + dy * dy;
+                }
                 float sumR = birdRadius + coin.radius;
                 if (distSq <= sumR * sumR) {
                     coin.collected = true;
-                    coinsCollectedInRun++;
+                    coinsCollectedInRun += (runHasDoubleCoins ? 2 : 1);
                     soundManager.playCoin();
                     spawnCoinBurst(coin.x, coin.y);
                     coinIt.remove();
@@ -931,7 +981,14 @@ public class GameView extends View implements MultiplayerManager.MultiplayerList
             }
         }
 
-        // 5. Draw Local Player Bird
+        // 5. Draw Local Player Bird & Shield Bubble if active
+        if (runHasShield || shieldInvulnTimer > 0f) {
+            paint.setColor(Color.parseColor("#3800E5FF"));
+            canvas.drawCircle(birdX, birdY, birdRadius * 1.65f, paint);
+            strokePaint.setColor(Color.parseColor("#00E5FF"));
+            strokePaint.setStrokeWidth(2.5f * dp);
+            canvas.drawCircle(birdX, birdY, birdRadius * 1.65f, strokePaint);
+        }
         drawStylizedBird(canvas, birdX, birdY, birdRadius, birdRotationDeg,
                 gameManager.getSelectedBirdSkin(), localPlayerAlive);
 
@@ -1204,46 +1261,114 @@ public class GameView extends View implements MultiplayerManager.MultiplayerList
         textPaint.setColor(Color.parseColor("#FFD700"));
         canvas.drawText("🪙 " + gameManager.getCoins(), viewWidth - sidePad, topY + 25f * dp, textPaint);
 
-        List<GameManager.BirdSkin> skins = gameManager.getBirdCatalog();
-        float gridTop = topY + 54f * dp;
-        float gap = 12f * dp;
+        // 3 Shop Category Tabs: SKINS 1, SKINS 2, POWER-UPS & PACKS
+        float tabTop = topY + 46f * dp;
+        float tabH = 34f * dp;
+        float tabGap = 8f * dp;
+        float tabW = (viewWidth - sidePad * 2 - tabGap * 2) / 3f;
+
+        btnShopTabSkinsPage1.set(sidePad, tabTop, sidePad + tabW, tabTop + tabH);
+        btnShopTabSkinsPage2.set(btnShopTabSkinsPage1.right + tabGap, tabTop, btnShopTabSkinsPage1.right + tabGap + tabW, tabTop + tabH);
+        btnShopTabProducts.set(btnShopTabSkinsPage2.right + tabGap, tabTop, viewWidth - sidePad, tabTop + tabH);
+
+        drawPillButton(canvas, btnShopTabSkinsPage1, "🐦 SKINS 1-6",
+                shopTab == 0 ? Color.parseColor("#0288D1") : Color.parseColor("#1E3A5F"),
+                shopTab == 0 ? Color.parseColor("#FFD700") : Color.parseColor("#00E5FF"), 11f);
+        drawPillButton(canvas, btnShopTabSkinsPage2, "🐉 SKINS 7-12",
+                shopTab == 1 ? Color.parseColor("#0288D1") : Color.parseColor("#1E3A5F"),
+                shopTab == 1 ? Color.parseColor("#FFD700") : Color.parseColor("#00E5FF"), 11f);
+        drawPillButton(canvas, btnShopTabProducts, "⚡ POWER-UPS",
+                shopTab == 2 ? Color.parseColor("#6A1B9A") : Color.parseColor("#1E3A5F"),
+                shopTab == 2 ? Color.parseColor("#FFD700") : Color.parseColor("#EA80FC"), 11f);
+
+        float gridTop = tabTop + tabH + 10f * dp;
+        float gap = 10f * dp;
         float colW = (viewWidth - sidePad * 2 - gap) * 0.5f;
-        float rowH = Math.min(148f * dp, (viewHeight - gridTop - 135f * dp) / 3f);
+        float rowH = Math.min(138f * dp, (viewHeight - gridTop - 130f * dp) / 3f);
 
-        for (int i = 0; i < skins.size() && i < 6; i++) {
-            int col = i % 2;
-            int row = i / 2;
-            float left = sidePad + col * (colW + gap);
-            float top = gridTop + row * (rowH + gap);
-            RectF card = shopCardRects[i];
-            card.set(left, top, left + colW, top + rowH);
+        if (shopTab == 0 || shopTab == 1) {
+            List<GameManager.BirdSkin> skins = gameManager.getBirdCatalog();
+            int startIndex = (shopTab == 0) ? 0 : 6;
+            for (int i = 0; i < 6; i++) {
+                int skinIndex = startIndex + i;
+                int col = i % 2;
+                int row = i / 2;
+                float left = sidePad + col * (colW + gap);
+                float top = gridTop + row * (rowH + gap);
+                RectF card = shopCardRects[i];
+                card.set(left, top, left + colW, top + rowH);
+                if (skinIndex >= skins.size()) {
+                    continue;
+                }
 
-            GameManager.BirdSkin skin = skins.get(i);
-            boolean unlocked = gameManager.isBirdUnlocked(skin.id);
-            boolean selected = (gameManager.getSelectedBirdId() == skin.id);
+                GameManager.BirdSkin skin = skins.get(skinIndex);
+                boolean unlocked = gameManager.isBirdUnlocked(skin.id);
+                boolean selected = (gameManager.getSelectedBirdId() == skin.id);
 
-            int borderCol = selected ? Color.parseColor("#00E676")
-                    : unlocked ? Color.parseColor("#00E5FF") : Color.parseColor("#FFD700");
-            drawGlassCard(canvas, card, Color.parseColor("#E60F2544"), borderCol);
+                int borderCol = selected ? Color.parseColor("#00E676")
+                        : unlocked ? Color.parseColor("#00E5FF") : Color.parseColor("#FFD700");
+                drawGlassCard(canvas, card, Color.parseColor("#E60F2544"), borderCol);
 
-            drawStylizedBird(canvas, card.centerX(), card.top + rowH * 0.32f,
-                    17f * dp, (float) Math.sin(animTimeSec * 3f + i) * 6f, skin, true);
+                drawStylizedBird(canvas, card.centerX(), card.top + rowH * 0.30f,
+                        16f * dp, (float) Math.sin(animTimeSec * 3f + i) * 6f, skin, true);
 
-            textPaint.setTextAlign(Paint.Align.CENTER);
-            textPaint.setTextSize(14f * dp);
-            textPaint.setColor(Color.WHITE);
-            canvas.drawText(skin.name, card.centerX(), card.top + rowH * 0.62f, textPaint);
+                textPaint.setTextAlign(Paint.Align.CENTER);
+                textPaint.setTextSize(13.5f * dp);
+                textPaint.setColor(Color.WHITE);
+                canvas.drawText(skin.name, card.centerX(), card.top + rowH * 0.56f, textPaint);
 
-            RectF actionPill = new RectF(card.left + 10f * dp, card.bottom - 34f * dp, card.right - 10f * dp, card.bottom - 7f * dp);
-            if (selected) {
-                drawPillButton(canvas, actionPill, "✓ EQUIPPED",
-                        Color.parseColor("#00C853"), Color.parseColor("#B9F6CA"), 11.5f);
-            } else if (unlocked) {
-                drawPillButton(canvas, actionPill, "SELECT",
-                        Color.parseColor("#0277BD"), Color.parseColor("#00E5FF"), 11.5f);
-            } else {
-                drawPillButton(canvas, actionPill, "🔓 BUY • " + skin.price + " 🪙",
-                        Color.parseColor("#FF8F00"), Color.parseColor("#FFE082"), 11.5f);
+                textPaint.setTextSize(9.5f * dp);
+                textPaint.setColor(Color.parseColor("#80D8FF"));
+                canvas.drawText(skin.tagline, card.centerX(), card.top + rowH * 0.69f, textPaint);
+
+                RectF actionPill = new RectF(card.left + 8f * dp, card.bottom - 31f * dp, card.right - 8f * dp, card.bottom - 6f * dp);
+                if (selected) {
+                    drawPillButton(canvas, actionPill, "✓ EQUIPPED",
+                            Color.parseColor("#00C853"), Color.parseColor("#B9F6CA"), 11f);
+                } else if (unlocked) {
+                    drawPillButton(canvas, actionPill, "SELECT",
+                            Color.parseColor("#0277BD"), Color.parseColor("#00E5FF"), 11f);
+                } else {
+                    drawPillButton(canvas, actionPill, "🔓 BUY • " + skin.price + " 🪙",
+                            Color.parseColor("#FF8F00"), Color.parseColor("#FFE082"), 11f);
+                }
+            }
+        } else {
+            List<GameManager.ShopProduct> products = gameManager.getProductCatalog();
+            for (int i = 0; i < 6 && i < products.size(); i++) {
+                int col = i % 2;
+                int row = i / 2;
+                float left = sidePad + col * (colW + gap);
+                float top = gridTop + row * (rowH + gap);
+                RectF card = shopCardRects[i];
+                card.set(left, top, left + colW, top + rowH);
+
+                GameManager.ShopProduct prod = products.get(i);
+                drawGlassCard(canvas, card, Color.parseColor("#E6141E38"), prod.accentColor);
+
+                textPaint.setTextAlign(Paint.Align.CENTER);
+                textPaint.setTextSize(22f * dp);
+                textPaint.setColor(Color.WHITE);
+                canvas.drawText(prod.iconEmoji, card.centerX(), card.top + rowH * 0.30f, textPaint);
+
+                int owned = gameManager.getProductOwnedCount(prod.id);
+                String title = (prod.id <= 3 && owned > 0) ? (prod.name + " (x" + owned + ")") : prod.name;
+                textPaint.setTextSize(13f * dp);
+                textPaint.setColor(Color.WHITE);
+                canvas.drawText(title, card.centerX(), card.top + rowH * 0.52f, textPaint);
+
+                textPaint.setTextSize(9.5f * dp);
+                textPaint.setColor(Color.parseColor("#B3E5FC"));
+                canvas.drawText(prod.description, card.centerX(), card.top + rowH * 0.67f, textPaint);
+
+                RectF actionPill = new RectF(card.left + 8f * dp, card.bottom - 31f * dp, card.right - 8f * dp, card.bottom - 6f * dp);
+                if (prod.isRewardedAdProduct) {
+                    drawPillButton(canvas, actionPill, "🎬 WATCH AD (FREE)",
+                            Color.parseColor("#00897B"), Color.parseColor("#FFD700"), 10.5f);
+                } else {
+                    drawPillButton(canvas, actionPill, "🛒 BUY • " + prod.coinPrice + " 🪙",
+                            Color.parseColor("#6A1B9A"), prod.accentColor, 10.5f);
+                }
             }
         }
 
@@ -1646,27 +1771,68 @@ public class GameView extends View implements MultiplayerManager.MultiplayerList
             switchScreen(ScreenState.MAIN_MENU);
             return;
         }
+        if (btnShopTabSkinsPage1.contains(x, y)) {
+            soundManager.playButton();
+            shopTab = 0;
+            return;
+        }
+        if (btnShopTabSkinsPage2.contains(x, y)) {
+            soundManager.playButton();
+            shopTab = 1;
+            return;
+        }
+        if (btnShopTabProducts.contains(x, y)) {
+            soundManager.playButton();
+            shopTab = 2;
+            return;
+        }
         if (btnShopWatchAd.contains(x, y)) {
             soundManager.playButton();
             if (hostCallbacks != null) hostCallbacks.onRequestRewardedAd();
             return;
         }
-        List<GameManager.BirdSkin> skins = gameManager.getBirdCatalog();
-        for (int i = 0; i < skins.size() && i < shopCardRects.length; i++) {
-            if (shopCardRects[i].contains(x, y)) {
-                GameManager.BirdSkin skin = skins.get(i);
-                GameManager.PurchaseResult res = gameManager.purchaseOrSelectBird(skin.id);
-                if (res == GameManager.PurchaseResult.SUCCESS) {
-                    soundManager.playCoin();
-                    showBannerNotice("Unlocked & equipped " + skin.name + "!");
-                } else if (res == GameManager.PurchaseResult.ALREADY_UNLOCKED) {
-                    soundManager.playButton();
-                    showBannerNotice("Equipped " + skin.name + "!");
-                } else if (res == GameManager.PurchaseResult.INSUFFICIENT_COINS) {
-                    soundManager.playHit();
-                    showBannerNotice("Need " + skin.price + " coins to unlock " + skin.name + ".");
+        if (shopTab == 0 || shopTab == 1) {
+            List<GameManager.BirdSkin> skins = gameManager.getBirdCatalog();
+            int startIndex = (shopTab == 0) ? 0 : 6;
+            for (int i = 0; i < shopCardRects.length; i++) {
+                int skinIndex = startIndex + i;
+                if (skinIndex < skins.size() && shopCardRects[i].contains(x, y)) {
+                    GameManager.BirdSkin skin = skins.get(skinIndex);
+                    GameManager.PurchaseResult res = gameManager.purchaseOrSelectBird(skin.id);
+                    if (res == GameManager.PurchaseResult.SUCCESS) {
+                        soundManager.playCoin();
+                        showBannerNotice("Unlocked & equipped " + skin.name + "!");
+                    } else if (res == GameManager.PurchaseResult.ALREADY_UNLOCKED) {
+                        soundManager.playButton();
+                        showBannerNotice("Equipped " + skin.name + "!");
+                    } else if (res == GameManager.PurchaseResult.INSUFFICIENT_COINS) {
+                        soundManager.playHit();
+                        showBannerNotice("Need " + skin.price + " coins to unlock " + skin.name + ".");
+                    }
+                    break;
                 }
-                break;
+            }
+        } else {
+            List<GameManager.ShopProduct> products = gameManager.getProductCatalog();
+            for (int i = 0; i < shopCardRects.length && i < products.size(); i++) {
+                if (shopCardRects[i].contains(x, y)) {
+                    GameManager.ShopProduct prod = products.get(i);
+                    if (prod.isRewardedAdProduct) {
+                        soundManager.playButton();
+                        if (hostCallbacks != null) hostCallbacks.onRequestRewardedAd();
+                    } else {
+                        GameManager.PurchaseResult res = gameManager.purchaseProduct(prod.id);
+                        if (res == GameManager.PurchaseResult.SUCCESS) {
+                            soundManager.playCoin();
+                            spawnCoinBurst(shopCardRects[i].centerX(), shopCardRects[i].centerY());
+                            showBannerNotice("Purchased " + prod.name + "! Auto-equips on next flight.");
+                        } else {
+                            soundManager.playHit();
+                            showBannerNotice("Need " + prod.coinPrice + " coins for " + prod.name + ".");
+                        }
+                    }
+                    break;
+                }
             }
         }
     }

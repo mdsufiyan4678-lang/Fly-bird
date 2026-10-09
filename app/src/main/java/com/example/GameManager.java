@@ -132,8 +132,40 @@ public class GameManager {
         INVALID_BIRD
     }
 
+    /**
+     * Represents an in-app shop product / power-up or bundle in the Store tab.
+     */
+    public static class ShopProduct {
+        public final int id;
+        public final String code;
+        public final String name;
+        public final String description;
+        public final int coinPrice;
+        public final boolean isRewardedAdProduct;
+        public final int accentColor;
+        public final String iconEmoji;
+
+        public ShopProduct(int id, String code, String name, String description,
+                           int coinPrice, boolean isRewardedAdProduct, int accentColor, String iconEmoji) {
+            this.id = id;
+            this.code = code;
+            this.name = name;
+            this.description = description;
+            this.coinPrice = coinPrice;
+            this.isRewardedAdProduct = isRewardedAdProduct;
+            this.accentColor = accentColor;
+            this.iconEmoji = iconEmoji;
+        }
+    }
+
+    private static final String KEY_SHIELD_COUNT = "powerup_shield_count";
+    private static final String KEY_MAGNET_COUNT = "powerup_magnet_count";
+    private static final String KEY_DOUBLE_COIN_COUNT = "powerup_double_coin_count";
+    private static final String KEY_HEADSTART_COUNT = "powerup_headstart_count";
+
     private final SharedPreferences prefs;
     private final List<BirdSkin> birdCatalog;
+    private final List<ShopProduct> productCatalog;
     private final Set<Integer> unlockedBirdIds;
     private final Set<String> processedMatchIds;
     private ClockProvider clockProvider;
@@ -145,6 +177,12 @@ public class GameManager {
     private String wsServerUrl;
     private String httpServerUrl;
     private String clientSessionId;
+
+    // Power-up inventory counts
+    private int shieldCount;
+    private int magnetCount;
+    private int doubleCoinCount;
+    private int headstartCount;
 
     // Daily reward state
     private long lastClaimEpochDay;
@@ -162,6 +200,7 @@ public class GameManager {
         this.prefs = context.getApplicationContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         this.clockProvider = (clockProvider != null) ? clockProvider : new SystemClockProvider();
         this.birdCatalog = createBirdCatalog();
+        this.productCatalog = createProductCatalog();
         this.unlockedBirdIds = new HashSet<>();
         this.processedMatchIds = new HashSet<>();
         loadState();
@@ -247,13 +286,154 @@ public class GameManager {
                 Color.parseColor("#88FFD700"),
                 Color.parseColor("#FF6F00")
         ));
+        // 7. Emerald Dragon
+        list.add(new BirdSkin(
+                6,
+                "Emerald Bird",
+                "Jade Wyvern • Emerald Aura",
+                650,
+                Color.parseColor("#00C853"),
+                Color.parseColor("#69F0AE"),
+                Color.parseColor("#B9F6CA"),
+                Color.parseColor("#6600E676"),
+                Color.parseColor("#FFD600")
+        ));
+        // 8. Shadow Ninja
+        list.add(new BirdSkin(
+                7,
+                "Shadow Ninja",
+                "Stealth Raven • Midnight",
+                800,
+                Color.parseColor("#263238"),
+                Color.parseColor("#7C4DFF"),
+                Color.parseColor("#B388FF"),
+                Color.parseColor("#777C4DFF"),
+                Color.parseColor("#FF1744")
+        ));
+        // 9. Sakura Spirit
+        list.add(new BirdSkin(
+                8,
+                "Sakura Bird",
+                "Cherry Blossom • Petal Wing",
+                950,
+                Color.parseColor("#EC407A"),
+                Color.parseColor("#FF80AB"),
+                Color.parseColor("#FCE4EC"),
+                Color.parseColor("#66FF80AB"),
+                Color.parseColor("#FFD54F")
+        ));
+        // 10. Thunder Volt
+        list.add(new BirdSkin(
+                9,
+                "Thunder Volt",
+                "Storm Hawk • Electric Surge",
+                1200,
+                Color.parseColor("#FFD600"),
+                Color.parseColor("#00E5FF"),
+                Color.parseColor("#FFFF8D"),
+                Color.parseColor("#8800E5FF"),
+                Color.parseColor("#FF6D00")
+        ));
+        // 11. Cosmic Galaxy
+        list.add(new BirdSkin(
+                10,
+                "Cosmic Bird",
+                "Nebula Star • Astral Trail",
+                1500,
+                Color.parseColor("#311B92"),
+                Color.parseColor("#18FFFF"),
+                Color.parseColor("#EA80FC"),
+                Color.parseColor("#88EA80FC"),
+                Color.parseColor("#FFD700")
+        ));
+        // 12. Diamond Royal
+        list.add(new BirdSkin(
+                11,
+                "Diamond Bird",
+                "Mythic Prism • Crystal King",
+                2000,
+                Color.parseColor("#80DEEA"),
+                Color.parseColor("#FFFFFF"),
+                Color.parseColor("#E0F7FA"),
+                Color.parseColor("#9984FFFF"),
+                Color.parseColor("#FFD700")
+        ));
         return Collections.unmodifiableList(list);
+    }
+
+    private List<ShopProduct> createProductCatalog() {
+        List<ShopProduct> items = new ArrayList<>();
+        items.add(new ShopProduct(
+                0,
+                "shield_1",
+                "Crash Shield",
+                "Blocks 1 pipe or ground crash",
+                75,
+                false,
+                Color.parseColor("#00E5FF"),
+                "🛡️"
+        ));
+        items.add(new ShopProduct(
+                1,
+                "magnet_1",
+                "Coin Magnet",
+                "Pulls nearby coins for 1 flight",
+                90,
+                false,
+                Color.parseColor("#FF5252"),
+                "🧲"
+        ));
+        items.add(new ShopProduct(
+                2,
+                "double_coin_1",
+                "2x Coin Boost",
+                "Doubles all coins in next run",
+                110,
+                false,
+                Color.parseColor("#FFD700"),
+                "✨"
+        ));
+        items.add(new ShopProduct(
+                3,
+                "headstart_1",
+                "+5 Headstart",
+                "Start flight at +5 score",
+                125,
+                false,
+                Color.parseColor("#00E676"),
+                "🚀"
+        ));
+        items.add(new ShopProduct(
+                4,
+                "vip_bundle",
+                "VIP Power Pack",
+                "2x Shield + 2x Magnet + 2x Boost",
+                280,
+                false,
+                Color.parseColor("#EA80FC"),
+                "👑"
+        ));
+        items.add(new ShopProduct(
+                5,
+                "ad_chest",
+                "Free Ad Chest",
+                "Watch Ad: +50 Coins & 1 Shield",
+                0,
+                true,
+                Color.parseColor("#FFD54F"),
+                "🎁"
+        ));
+        return Collections.unmodifiableList(items);
     }
 
     private void loadState() {
         coins = prefs.getInt(KEY_COINS, 25);
         bestScore = prefs.getInt(KEY_BEST_SCORE, 0);
         selectedBirdId = prefs.getInt(KEY_SELECTED_BIRD, 0);
+        shieldCount = Math.max(0, prefs.getInt(KEY_SHIELD_COUNT, 0));
+        magnetCount = Math.max(0, prefs.getInt(KEY_MAGNET_COUNT, 0));
+        doubleCoinCount = Math.max(0, prefs.getInt(KEY_DOUBLE_COIN_COUNT, 0));
+        headstartCount = Math.max(0, prefs.getInt(KEY_HEADSTART_COUNT, 0));
 
         unlockedBirdIds.clear();
         unlockedBirdIds.add(0); // Blue Bird is always free and unlocked
@@ -528,6 +708,140 @@ public class GameManager {
 
     public List<BirdSkin> getBirdCatalog() {
         return birdCatalog;
+    }
+
+    public List<ShopProduct> getProductCatalog() {
+        return productCatalog;
+    }
+
+    public synchronized int getShieldCount() {
+        return shieldCount;
+    }
+
+    public synchronized int getMagnetCount() {
+        return magnetCount;
+    }
+
+    public synchronized int getDoubleCoinCount() {
+        return doubleCoinCount;
+    }
+
+    public synchronized int getHeadstartCount() {
+        return headstartCount;
+    }
+
+    public synchronized int getProductOwnedCount(int productId) {
+        switch (productId) {
+            case 0:
+                return shieldCount;
+            case 1:
+                return magnetCount;
+            case 2:
+                return doubleCoinCount;
+            case 3:
+                return headstartCount;
+            default:
+                return 0;
+        }
+    }
+
+    /**
+     * Purchases an in-app shop product (power-up or VIP bundle) using coins.
+     */
+    public synchronized PurchaseResult purchaseProduct(int productId) {
+        ShopProduct product = null;
+        for (ShopProduct p : productCatalog) {
+            if (p.id == productId) {
+                product = p;
+                break;
+            }
+        }
+        if (product == null) {
+            return PurchaseResult.INVALID_BIRD;
+        }
+        if (product.isRewardedAdProduct) {
+            return PurchaseResult.SUCCESS;
+        }
+        if (coins < product.coinPrice) {
+            return PurchaseResult.INSUFFICIENT_COINS;
+        }
+        coins -= product.coinPrice;
+        switch (productId) {
+            case 0:
+                shieldCount++;
+                break;
+            case 1:
+                magnetCount++;
+                break;
+            case 2:
+                doubleCoinCount++;
+                break;
+            case 3:
+                headstartCount++;
+                break;
+            case 4:
+                // VIP Power Pack: 2x Shield + 2x Magnet + 2x Double Coin Boost
+                shieldCount += 2;
+                magnetCount += 2;
+                doubleCoinCount += 2;
+                break;
+            default:
+                break;
+        }
+        savePowerUpsAndCoins();
+        return PurchaseResult.SUCCESS;
+    }
+
+    public synchronized void grantAdChestBonus() {
+        coins += 50;
+        shieldCount += 1;
+        savePowerUpsAndCoins();
+    }
+
+    public synchronized boolean consumeShield() {
+        if (shieldCount <= 0) {
+            return false;
+        }
+        shieldCount--;
+        savePowerUpsAndCoins();
+        return true;
+    }
+
+    public synchronized boolean consumeMagnet() {
+        if (magnetCount <= 0) {
+            return false;
+        }
+        magnetCount--;
+        savePowerUpsAndCoins();
+        return true;
+    }
+
+    public synchronized boolean consumeDoubleCoin() {
+        if (doubleCoinCount <= 0) {
+            return false;
+        }
+        doubleCoinCount--;
+        savePowerUpsAndCoins();
+        return true;
+    }
+
+    public synchronized boolean consumeHeadstart() {
+        if (headstartCount <= 0) {
+            return false;
+        }
+        headstartCount--;
+        savePowerUpsAndCoins();
+        return true;
+    }
+
+    private void savePowerUpsAndCoins() {
+        prefs.edit()
+                .putInt(KEY_COINS, coins)
+                .putInt(KEY_SHIELD_COUNT, shieldCount)
+                .putInt(KEY_MAGNET_COUNT, magnetCount)
+                .putInt(KEY_DOUBLE_COIN_COUNT, doubleCoinCount)
+                .putInt(KEY_HEADSTART_COUNT, headstartCount)
+                .apply();
     }
 
     public BirdSkin getBirdSkin(int id) {
